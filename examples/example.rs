@@ -7,9 +7,11 @@ use std::time::{Duration, SystemTime};
 use std::{env, time::SystemTimeError};
 
 use bitcoin_node_query::{
-    get_average_block_time, get_block_height, get_chain_size, get_time_since_last_block_in_seconds,
-    get_total_fee_for_24_hours, get_total_transactions_count, get_tps_for_last_30_days,
-    get_transactions_count_over_last_30_days, get_utxo_set_size,
+    get_average_block_time, get_block_height, get_chain_size, get_current_difficulty_epoch,
+    get_difficulty, get_estimated_hash_rate_per_second_for_block_since_last_difficulty_change,
+    get_estimated_hash_rate_per_second_for_last_2016_blocks, get_mempool_transactions_count,
+    get_time_since_last_block_in_seconds, get_total_fee_for_24_hours, get_total_transactions_count,
+    get_tps_for_last_30_days, get_transactions_count_over_last_30_days, get_utxo_set_size,
 };
 
 fn client(url: &str, user: &str, pass: &str) -> Result<Client, simple_http::Error> {
@@ -73,16 +75,42 @@ fn main() {
     );
 
     // takes a long time
-    let transactions_count_over_last_30_days = get_transactions_count_over_last_30_days(&client);
-    println!(
-        "TRANSACTIONS COUNT OVER LAST 30 DAYS: {:#?}",
-        transactions_count_over_last_30_days
-    );
+    // TODO: Uncomment
+    // let transactions_count_over_last_30_days = get_transactions_count_over_last_30_days(&client);
+    // println!(
+    //     "TRANSACTIONS COUNT OVER LAST 30 DAYS: {:#?}",
+    //     transactions_count_over_last_30_days
+    // );
 
     // takes a long time
-    let total_fee_for_24_hours = get_total_fee_for_24_hours(&client);
+    // TODO: Uncomment
+    //let total_fee_for_24_hours = get_total_fee_for_24_hours(&client);
+    //println!(
+    //    "TOTAL FEE FOR LAST 24 hours: {:#?}",
+    //    total_fee_for_24_hours as f64 / 100_000_000.0
+    //);
+
+    let difficulty = get_difficulty(&client);
+    let trillion: u64 = 1_000_000_000_000;
+    let difficulty_per_trillion: f64 = difficulty as f64 / trillion as f64;
+    println!("Difficulty: {:.2}x10^12", difficulty_per_trillion);
+
+    let current_difficulty_epoch = get_current_difficulty_epoch(&client);
+    println!("CURRENT EPOCH: {:?}", current_difficulty_epoch);
+
+    let mempool_transaction_count = get_mempool_transactions_count(&client);
+    println!("MEMPOOL TRANSACTION COUNT: {:?}", mempool_transaction_count);
+
+    let hash_rate_since_last_difficulty_change =
+        get_estimated_hash_rate_per_second_for_block_since_last_difficulty_change(&client);
     println!(
-        "TOTAL FEE FOR LAST 24 hours: {:#?}",
-        total_fee_for_24_hours as f64 / 100_000_000.0
+        "ESTIMATED HASH RATE SINCE LAST DIFFICULTY CHANGE: {}",
+        hash_rate_since_last_difficulty_change
+    );
+    let hash_rate_for_last_2016_blocks =
+        get_estimated_hash_rate_per_second_for_last_2016_blocks(&client);
+    println!(
+        "ESTIMATED HASH RATE FOR LAST 2016 BLOCKS: {}",
+        hash_rate_for_last_2016_blocks
     );
 }

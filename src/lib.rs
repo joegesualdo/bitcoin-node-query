@@ -153,3 +153,37 @@ pub fn get_total_fee_for_24_hours(client: &Client) -> u64 {
     }
     total_fee
 }
+
+pub fn get_difficulty(client: &Client) -> f64 {
+    let difficulty = GetDifficultyCommand::new().call(client);
+    difficulty.0
+}
+
+pub fn get_current_difficulty_epoch(client: &Client) -> u64 {
+    let block_count = get_block_height(client);
+    let epoch = (block_count / 2016) + 1;
+    epoch
+}
+
+pub fn get_mempool_transactions_count(client: &Client) -> u64 {
+    let mining_info = GetMiningInfoCommand::new().call(client);
+    let mempool_transaction_count = mining_info.pooledtx;
+    mempool_transaction_count
+}
+
+pub fn get_estimated_hash_rate_per_second_for_block_since_last_difficulty_change(
+    client: &Client,
+) -> f64 {
+    let hash_rate = GetNetworkHashPsCommand::new()
+        .set_n_blocks(bitcoind_request::command::get_network_hash_ps::BlocksToIncludeArg::BlocksSinceLastDifficultyChange)
+        .call(client);
+    hash_rate.0
+}
+pub fn get_estimated_hash_rate_per_second_for_last_2016_blocks(client: &Client) -> f64 {
+    let hash_rate = GetNetworkHashPsCommand::new()
+        .set_n_blocks(
+            bitcoind_request::command::get_network_hash_ps::BlocksToIncludeArg::NBlocks(2016),
+        )
+        .call(client);
+    hash_rate.0
+}
