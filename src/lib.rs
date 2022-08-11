@@ -87,6 +87,7 @@ pub fn get_average_block_time_for_last_2016_blocks(client: &Client) -> u64 {
     let average_seconds_per_block = duration / 2016 as u64;
     average_seconds_per_block
 }
+
 pub fn get_average_block_time_for_since_last_difficulty_adjustement(client: &Client) -> u64 {
     let block_height = GetBlockCountCommand::new().call(client);
     let block_stats_response =
