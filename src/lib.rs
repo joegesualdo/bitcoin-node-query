@@ -1,10 +1,11 @@
-#![allow(dead_code)]
 #![allow(unused_imports)]
+use bitcoin_address::is_segwit_v0;
+use bitcoin_transaction_utils::is_transaction_hex_segwit;
 use bitcoind_request::command::{
     get_best_block_hash::GetBestBlockHashCommand,
     get_block::{
-        self, GetBlockCommand, GetBlockCommandResponse, GetBlockCommandTransactionResponse,
-        GetBlockCommandVerbosity,
+        self, CoinbaseVin, DecodeRawTransactionResponse, GetBlockCommand, GetBlockCommandResponse,
+        GetBlockCommandTransactionResponse, GetBlockCommandVerbosity, Vout,
     },
     get_block_count::{self, GetBlockCountCommand},
     get_block_hash::GetBlockHashCommand,
@@ -47,6 +48,17 @@ fn timestamp_is_from_more_than_24_hours_ago(timestamp: i64) -> bool {
     let datetime_24_hours_ago = current_datetime - window_to_cacluate_duration_in_seconds;
     let datetime_of_block = Utc.timestamp(timestamp as i64, 0);
     datetime_of_block < datetime_24_hours_ago
+}
+
+fn timestamp_is_from_more_than_90_days_ago(timestamp: i64) -> bool {
+    let hour_window_to_calculate_for = 24 * 90;
+
+    let current_datetime = chrono::offset::Utc::now();
+    let window_to_cacluate_duration_in_seconds =
+        Duration::seconds(60 * 60 * hour_window_to_calculate_for);
+    let datetime_90_days_ago = current_datetime - window_to_cacluate_duration_in_seconds;
+    let datetime_of_block = Utc.timestamp(timestamp as i64, 0);
+    datetime_of_block < datetime_90_days_ago
 }
 
 pub fn get_block_height(client: &Client) -> u64 {
@@ -178,6 +190,7 @@ pub fn get_total_fee_for_block_at_height(client: &Client, height: u64) -> u64 {
     };
     total_fee
 }
+
 fn get_subsidy_for_block_at_height(client: &Client, height: u64) -> u64 {
     let client = &client.bitcoind_request_client;
     let block_stats = GetBlockStatsCommand::new(TargetBlockArgument::Height(height))
@@ -414,4 +427,235 @@ pub fn get_block_subsidy_of_most_recent_block(client: &Client) -> u64 {
     let block_count = get_block_height(client);
     let block_subsidy = get_subsidy_for_block_at_height(client, block_count);
     block_subsidy
+}
+
+//// takes a long time
+struct Conf {
+    based_on_transaction_hex: bool,
+    based_on_vouts_and_vins: bool,
+    based_on_vouts: bool,
+    factor_in_change_address: bool,
+    include_coinbase_transaction: bool,
+}
+
+// NOTE: Currently is optimized or only works for basing it off the transaction hex. Because of the
+// 'continue' the vouts and vins won't even be taken into consideration. To do them also, remove
+// the 'continue' and 'break's
+// TODO: REMOVE THE break AND continue, unless you incorporate the configs above.
+// TODO: SPLIT BETWEEN segwit and segwit native. For example, this tranasaction is segwit (notic
+// the yellow tag, but not segwit native). See new address functions below.
+pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
+    client: &Client,
+) -> (f64, f64, f64, f64, f64) {
+    let block_count = get_block_height(client);
+
+    // defaults to current time
+    let mut next_block_timestamp: u64 = get_timestamp_of_block_at_height(client, block_count);
+    let mut traversed_blocks_count = 0;
+    let mut vouts_count_minus_change_vout: u64 = 0;
+    let mut segwit_vouts_count: u64 = 0;
+    let mut transactions_count_not_including_coinbase: u64 = 0;
+    let mut segwit_spending_transactions_count_not_including_coinbase: u64 = 0;
+    let mut payments_from_segwit_spending_transactions_count_not_including_coinbase: u64 = 0;
+    let mut transactions_count_including_coinbase: u64 = 0;
+    let mut transactions_segwit_count_based_on_vouts_not_including_coinbase: u64 = 0;
+    let mut transactions_segwit_count_based_on_transaction_hex_not_including_coinbase: u64 = 0;
+    let mut transactions_segwit_count_based_on_vins_or_vouts_not_including_coinbase: u64 = 0;
+    // Calculate fee while the blocktime is within the 24 hour window.
+    while !timestamp_is_from_more_than_24_hours_ago(next_block_timestamp as i64) {
+        let height = block_count - traversed_blocks_count;
+        println!("BLOCK HEIGHT:{}", height);
+        println!("BLOCKs traversed:{}", traversed_blocks_count);
+        // get vouts of block at height
+        let bitcoind_request_client = &client.bitcoind_request_client;
+        // Get all transactions
+        let block_stats = GetBlockStatsCommand::new(TargetBlockArgument::Height(height))
+            .add_selective_stats(vec![StatsArgumentChoices::Blockhash])
+            .call(bitcoind_request_client);
+        let blockhash = match block_stats {
+            GetBlockStatsCommandResponse::AllStats(response) => response.blockhash,
+            GetBlockStatsCommandResponse::SelectiveStats(response) => response.blockhash.unwrap(),
+        };
+        let get_block_response = GetBlockCommand::new(Blockhash(blockhash))
+            .verbosity(GetBlockCommandVerbosity::BlockObjectWithTransactionInformation)
+            .call(&bitcoind_request_client);
+        let block_transactions_responses: Vec<GetBlockCommandTransactionResponse> =
+            match get_block_response {
+                GetBlockCommandResponse::Block(block) => block.tx,
+                _ => todo!(),
+            };
+        let transactions: Vec<DecodeRawTransactionResponse> = block_transactions_responses
+            .into_iter()
+            .map(
+                |block_transaction_response| match block_transaction_response {
+                    GetBlockCommandTransactionResponse::Raw(transaction) => transaction,
+                    GetBlockCommandTransactionResponse::Id(transaction_id) => todo!(),
+                },
+            )
+            .collect();
+        // Loop through transactions
+        for transaction in transactions.into_iter() {
+            transactions_count_including_coinbase = transactions_count_including_coinbase + 1;
+            if !transaction.is_coinbase_transaction() {
+                transactions_count_not_including_coinbase =
+                    transactions_count_not_including_coinbase + 1;
+                let transaction_hex = transaction.hex;
+                if is_transaction_hex_segwit(&transaction_hex) {
+                    transactions_segwit_count_based_on_transaction_hex_not_including_coinbase =
+                        transactions_segwit_count_based_on_transaction_hex_not_including_coinbase
+                            + 1;
+                    // TODO: This would optimize it to be much quicker if we only care about the
+                    // transaction hex
+                    // continue;
+                }
+                let vouts = transaction.vout;
+                let vins = transaction.vin;
+                let vouts_count: u64 = vouts.len() as u64;
+                let vouts_count_minus_change_vout_for_transaction = if vouts_count == 1 {
+                    vouts_count
+                } else {
+                    vouts_count - 1
+                };
+                // Factor in change address: https://transactionfee.info/charts/payments-spending-segwit/
+                if vouts_count == 1 {
+                    vouts_count_minus_change_vout = vouts_count_minus_change_vout + vouts_count;
+                } else {
+                    vouts_count_minus_change_vout = vouts_count_minus_change_vout + vouts_count - 1;
+                }
+                let mut is_segwit_transaction_based_on_vouts = false;
+                let mut is_segwit_transaction_based_on_vins = false;
+                for vout in vouts.iter() {
+                    let is_segwit = match &vout.script_pub_key.address {
+                        Some(address) => is_segwit_v0(&address),
+                        None => false,
+                    };
+                    if is_segwit {
+                        segwit_vouts_count = segwit_vouts_count + 1;
+                        is_segwit_transaction_based_on_vouts = true;
+                        // TODO: This would optimize it to be much quicker we didn't care about
+                        // vins, UNLESS there were not  vout addresses that matched our segwith
+                        // calculation
+                        //break;
+                    } else {
+                        //println!(
+                        //    "NOT SEGWIT BASED ON VOUTS: {:#?}",
+                        //    &vout.script_pub_key.address
+                        //);
+                    }
+                }
+                // NOTE: OPTIMIZATION for certain code paths
+                //if !is_segwit_transaction_based_on_vouts {
+                let mut vins_count = 0;
+
+                for vin in vins.iter() {
+                    match &vin {
+                        get_block::Vin::Coinbase(_) => {}
+                        get_block::Vin::NonCoinbase(v) => {
+                            vins_count = vins_count + 1;
+                            let txid = &v.txid;
+                            let vout_index = v.vout;
+                            println!("About to GetRawTransactionCommand: {}", txid.clone());
+                            let transaction = GetRawTransactionCommand::new(txid.clone())
+                                .verbose(true)
+                                .call(bitcoind_request_client);
+
+                            let vout_address = match transaction {
+                                GetRawTransactionCommandResponse::SerializedHexEncodedData(_s) => {
+                                    todo!()
+                                }
+                                GetRawTransactionCommandResponse::Transaction(transaction) => {
+                                    let address = &transaction.vout[vout_index as usize]
+                                        .script_pub_key
+                                        .address;
+                                    let a = address.clone();
+                                    a
+                                }
+                            };
+
+                            let is_segwit = match &vout_address {
+                                Some(address) => is_segwit_v0(address),
+                                None => false,
+                            };
+                            if is_segwit {
+                                is_segwit_transaction_based_on_vins = true;
+                                // break;
+                            } else {
+                                //println!("NOT SEGWIT BASED ON VINS: {:#?}", &vout_address);
+                            }
+                        }
+                    }
+                }
+
+                //}
+
+                if is_segwit_transaction_based_on_vouts {
+                    transactions_segwit_count_based_on_vouts_not_including_coinbase =
+                        transactions_segwit_count_based_on_vouts_not_including_coinbase + 1;
+                } else {
+                    //jprintln!("NOT SEGWIT: {:#?}", transaction.txid);
+                }
+
+                // https://transactionfee.info/charts/payments-spending-segwit/
+                if is_segwit_transaction_based_on_vins {
+                    segwit_spending_transactions_count_not_including_coinbase =
+                        segwit_spending_transactions_count_not_including_coinbase + 1;
+
+                    payments_from_segwit_spending_transactions_count_not_including_coinbase =
+                        payments_from_segwit_spending_transactions_count_not_including_coinbase
+                            + vouts_count_minus_change_vout_for_transaction;
+                }
+
+                if is_segwit_transaction_based_on_vouts || is_segwit_transaction_based_on_vins {
+                    transactions_segwit_count_based_on_vins_or_vouts_not_including_coinbase =
+                        transactions_segwit_count_based_on_vins_or_vouts_not_including_coinbase + 1;
+                } else {
+                    println!("NOT SEGWIT: {:#?}", transaction.txid);
+                }
+            }
+        }
+
+        traversed_blocks_count = traversed_blocks_count + 1;
+
+        let next_block_height_to_calculate = block_count - traversed_blocks_count;
+        let time = get_timestamp_of_block_at_height(client, next_block_height_to_calculate);
+
+        next_block_timestamp = time as u64;
+    }
+
+    // % of payments that are segwit, where payments are vouts. NOTE: We factor in change address
+    // segwit_vouts_count as f64 / vouts_count_minus_change_vout as f64
+    //
+    // % of transactions that are segwit, not including coinase
+    println!(
+        "transactions count (not including coinbase): {}",
+        transactions_count_not_including_coinbase
+    );
+    println!(
+        "transactions count (including coinbase): {}",
+        transactions_count_including_coinbase
+    );
+    let percent_based_on_vouts = transactions_segwit_count_based_on_vouts_not_including_coinbase
+        as f64
+        / transactions_count_not_including_coinbase as f64;
+    let percent_based_on_vins_or_vouts =
+        transactions_segwit_count_based_on_vins_or_vouts_not_including_coinbase as f64
+            / transactions_count_not_including_coinbase as f64;
+    let percent_based_on_transaction_hexes =
+        transactions_segwit_count_based_on_transaction_hex_not_including_coinbase as f64
+            / transactions_count_not_including_coinbase as f64;
+    // https://transactionfee.info/charts/payments-spending-segwit/
+    let percent_of_payments_spending_segwit_per_day =
+        payments_from_segwit_spending_transactions_count_not_including_coinbase as f64
+            / vouts_count_minus_change_vout as f64;
+    let percent_of_segwit_spending_transactions_per_day =
+        segwit_spending_transactions_count_not_including_coinbase as f64
+            / transactions_count_not_including_coinbase as f64;
+
+    (
+        percent_based_on_vouts,
+        percent_based_on_vins_or_vouts,
+        percent_based_on_transaction_hexes,
+        percent_of_payments_spending_segwit_per_day,
+        percent_of_segwit_spending_transactions_per_day,
+    )
 }

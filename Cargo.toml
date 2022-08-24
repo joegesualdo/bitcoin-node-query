@@ -8,6 +8,8 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitcoind-request = "0.1.4"
+bitcoind-request = "0.1.11"
+bitcoin-address = "0.1.1"
+bitcoin-transaction-utils = "0.1.0"
 jsonrpc = "0.13.0"
 chrono = "0.4"
