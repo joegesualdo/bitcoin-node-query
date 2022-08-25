@@ -447,6 +447,7 @@ struct Conf {
 pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
     client: &Client,
 ) -> (f64, f64, f64, f64, f64) {
+    let is_segwit = is_segwit_v0;
     let block_count = get_block_height(client);
 
     // defaults to current time
@@ -526,7 +527,7 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
                 let mut is_segwit_transaction_based_on_vins = false;
                 for vout in vouts.iter() {
                     let is_segwit = match &vout.script_pub_key.address {
-                        Some(address) => is_segwit_v0(&address),
+                        Some(address) => is_segwit(&address),
                         None => false,
                     };
                     if is_segwit {
@@ -573,7 +574,7 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
                             };
 
                             let is_segwit = match &vout_address {
-                                Some(address) => is_segwit_v0(address),
+                                Some(address) => is_segwit(address),
                                 None => false,
                             };
                             if is_segwit {
@@ -634,10 +635,10 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
         "transactions count (including coinbase): {}",
         transactions_count_including_coinbase
     );
-    let percent_based_on_vouts = transactions_segwit_count_based_on_vouts_not_including_coinbase
-        as f64
-        / transactions_count_not_including_coinbase as f64;
-    let percent_based_on_vins_or_vouts =
+    let percent_of_transactions_with_a_segwit_vout =
+        transactions_segwit_count_based_on_vouts_not_including_coinbase as f64
+            / transactions_count_not_including_coinbase as f64;
+    let percent_of_transactions_with_a_segwit_vin_or_vout =
         transactions_segwit_count_based_on_vins_or_vouts_not_including_coinbase as f64
             / transactions_count_not_including_coinbase as f64;
     let percent_based_on_transaction_hexes =
@@ -652,8 +653,8 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
             / transactions_count_not_including_coinbase as f64;
 
     (
-        percent_based_on_vouts,
-        percent_based_on_vins_or_vouts,
+        percent_of_transactions_with_a_segwit_vout,
+        percent_of_transactions_with_a_segwit_vin_or_vout,
         percent_based_on_transaction_hexes,
         percent_of_payments_spending_segwit_per_day,
         percent_of_segwit_spending_transactions_per_day,

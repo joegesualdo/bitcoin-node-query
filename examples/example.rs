@@ -194,16 +194,19 @@ fn main() {
     // TODO: check the is_segwith_adress function and make sure it's exactly how you want to
     // define what segwith type you're looking for
     let (
-        percent_based_on_vouts,
-        percent_based_on_vins_or_vouts,
+        percent_of_transactions_with_a_segwit_vout,
+        percent_of_transactions_with_a_segwit_vin_or_vout,
         percent_based_on_transaction_hexes,
         percent_of_payments_spending_segwit_per_day,
         percent_of_segwit_spending_transactions_per_day,
     ) = get_percent_of_vouts_used_segwit_over_last_24_hours(&client);
-    println!("segwit percent (vouts): {:#?}", percent_based_on_vouts);
+    println!(
+        "segwit percent (vouts): {:#?}",
+        percent_of_transactions_with_a_segwit_vout
+    );
     println!(
         "segwit percent (vouts or vins): {:#?}",
-        percent_based_on_vins_or_vouts
+        percent_of_transactions_with_a_segwit_vin_or_vout,
     );
     // https://bitbo.io/
     println!(
