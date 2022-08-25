@@ -64,15 +64,15 @@ fn timestamp_is_from_more_than_90_days_ago(timestamp: i64) -> bool {
 pub fn get_block_height(client: &Client) -> u64 {
     let client = &client.bitcoind_request_client;
     let block_count = GetBlockCountCommand::new().call(client);
-    return block_count.0;
+    return block_count.unwrap().0;
 }
 
 pub fn get_time_since_last_block_in_seconds(client: &Client) -> i64 {
     let client = &client.bitcoind_request_client;
     let block_count = GetBlockCountCommand::new().call(client);
-    let arg = TargetBlockArgument::Height(block_count.0);
+    let arg = TargetBlockArgument::Height(block_count.unwrap().0);
     let block_stats_response = GetBlockStatsCommand::new(arg).call(client);
-    let time_of_last_block = match block_stats_response {
+    let time_of_last_block = match block_stats_response.unwrap() {
         GetBlockStatsCommandResponse::AllStats(response) => response.time,
         GetBlockStatsCommandResponse::SelectiveStats(response) => response.time.unwrap(),
     };
@@ -84,17 +84,17 @@ pub fn get_time_since_last_block_in_seconds(client: &Client) -> i64 {
 
 pub fn get_average_block_time_for_last_2016_blocks(client: &Client) -> u64 {
     let client = &client.bitcoind_request_client;
-    let block_height = GetBlockCountCommand::new().call(client);
+    let block_height = GetBlockCountCommand::new().call(client).unwrap();
     let block_stats_response =
         GetBlockStatsCommand::new(TargetBlockArgument::Height(block_height.0)).call(client);
-    let time_of_most_recent_block = match block_stats_response {
+    let time_of_most_recent_block = match block_stats_response.unwrap() {
         GetBlockStatsCommandResponse::AllStats(response) => response.time,
         GetBlockStatsCommandResponse::SelectiveStats(response) => response.time.unwrap(),
     };
 
     let block_stats_response_for_block_2016_old =
         GetBlockStatsCommand::new(TargetBlockArgument::Height(block_height.0 - 2016)).call(client);
-    let time_of_block_2016_old = match block_stats_response_for_block_2016_old {
+    let time_of_block_2016_old = match block_stats_response_for_block_2016_old.unwrap() {
         GetBlockStatsCommandResponse::AllStats(response) => response.time,
         GetBlockStatsCommandResponse::SelectiveStats(response) => response.time.unwrap(),
     };
@@ -108,9 +108,9 @@ pub fn get_average_block_time_for_since_last_difficulty_adjustement(client: &Cli
     let bitcoind_request_client = &client.bitcoind_request_client;
     let block_height = GetBlockCountCommand::new().call(bitcoind_request_client);
     let block_stats_response =
-        GetBlockStatsCommand::new(TargetBlockArgument::Height(block_height.0))
+        GetBlockStatsCommand::new(TargetBlockArgument::Height(block_height.unwrap().0))
             .call(bitcoind_request_client);
-    let time_of_most_recent_block = match block_stats_response {
+    let time_of_most_recent_block = match block_stats_response.unwrap() {
         GetBlockStatsCommandResponse::AllStats(response) => response.time,
         GetBlockStatsCommandResponse::SelectiveStats(response) => response.time.unwrap(),
     };
@@ -122,7 +122,7 @@ pub fn get_average_block_time_for_since_last_difficulty_adjustement(client: &Cli
     )
     .call(bitcoind_request_client);
     let time_of_last_difficulty_adjustment_block =
-        match block_stats_response_for_last_difficulty_ajustment_block {
+        match block_stats_response_for_last_difficulty_ajustment_block.unwrap() {
             GetBlockStatsCommandResponse::AllStats(response) => response.time,
             GetBlockStatsCommandResponse::SelectiveStats(response) => response.time.unwrap(),
         };
@@ -139,32 +139,32 @@ pub fn get_total_money_supply(client: &Client) -> u64 {
     // calls to gettxoutsetinfo are erroring out due to this: https://github.com/apoelstra/rust-jsonrpc/issues/67
     let client = &client.bitcoind_request_client;
     let tx_out_set_info = GetTxOutSetInfoCommand::new().call(client);
-    tx_out_set_info.total_amount
+    tx_out_set_info.unwrap().total_amount
 }
 
 // gets the chain size in bytes
 pub fn get_chain_size(client: &Client) -> u64 {
     let client = &client.bitcoind_request_client;
     let blockchain_info = GetBlockchainInfoCommand::new().call(client);
-    blockchain_info.size_on_disk
+    blockchain_info.unwrap().size_on_disk
 }
 
 pub fn get_utxo_set_size(client: &Client) -> u64 {
     let client = &client.bitcoind_request_client;
     let tx_out_set_info = GetTxOutSetInfoCommand::new().call(client);
-    tx_out_set_info.txouts
+    tx_out_set_info.unwrap().txouts
 }
 
 pub fn get_total_transactions_count(client: &Client) -> u64 {
     let client = &client.bitcoind_request_client;
     let chain_tx_stats = GetChainTxStatsCommand::new().call(client);
-    chain_tx_stats.txcount
+    chain_tx_stats.unwrap().txcount
 }
 
 pub fn get_tps_for_last_30_days(client: &Client) -> f64 {
     // This defaults to getting about 30 days worth of of data
     let client = &client.bitcoind_request_client;
-    let chain_tx_stats = GetChainTxStatsCommand::new().call(client);
+    let chain_tx_stats = GetChainTxStatsCommand::new().call(client).unwrap();
     let seconds_in_interval = chain_tx_stats.window_interval;
     let transactions_count_in_window = chain_tx_stats.window_tx_count as f64;
     let elapsed_seconds_in_window = seconds_in_interval as f64;
@@ -176,7 +176,7 @@ pub fn get_tps_for_last_30_days(client: &Client) -> f64 {
 pub fn get_transactions_count_over_last_30_days(client: &Client) -> u64 {
     let client = &client.bitcoind_request_client;
     let chain_tx_stats = GetChainTxStatsCommand::new().call(client);
-    chain_tx_stats.window_tx_count
+    chain_tx_stats.unwrap().window_tx_count
 }
 
 pub fn get_total_fee_for_block_at_height(client: &Client, height: u64) -> u64 {
@@ -184,7 +184,7 @@ pub fn get_total_fee_for_block_at_height(client: &Client, height: u64) -> u64 {
     let block_stats = GetBlockStatsCommand::new(TargetBlockArgument::Height(height))
         .add_selective_stats(vec![StatsArgumentChoices::TotalFee])
         .call(client);
-    let total_fee = match block_stats {
+    let total_fee = match block_stats.unwrap() {
         GetBlockStatsCommandResponse::AllStats(response) => response.totalfee,
         GetBlockStatsCommandResponse::SelectiveStats(response) => response.totalfee.unwrap(),
     };
@@ -196,7 +196,7 @@ fn get_subsidy_for_block_at_height(client: &Client, height: u64) -> u64 {
     let block_stats = GetBlockStatsCommand::new(TargetBlockArgument::Height(height))
         .add_selective_stats(vec![StatsArgumentChoices::Subsidy])
         .call(client);
-    let subsidy = match block_stats {
+    let subsidy = match block_stats.unwrap() {
         GetBlockStatsCommandResponse::AllStats(response) => response.subsidy,
         GetBlockStatsCommandResponse::SelectiveStats(response) => response.subsidy.unwrap(),
     };
@@ -208,7 +208,7 @@ fn get_timestamp_of_block_at_height(client: &Client, height: u64) -> u64 {
     let block_stats = GetBlockStatsCommand::new(TargetBlockArgument::Height(height))
         .add_selective_stats(vec![StatsArgumentChoices::Time])
         .call(client);
-    let time = match block_stats {
+    let time = match block_stats.unwrap() {
         GetBlockStatsCommandResponse::AllStats(response) => response.time,
         GetBlockStatsCommandResponse::SelectiveStats(response) => response.time.unwrap(),
     };
@@ -240,7 +240,7 @@ pub fn get_total_fee_for_24_hours(client: &Client) -> u64 {
 pub fn get_difficulty(client: &Client) -> f64 {
     let client = &client.bitcoind_request_client;
     let difficulty = GetDifficultyCommand::new().call(client);
-    difficulty.0
+    difficulty.unwrap().0
 }
 
 pub fn get_current_difficulty_epoch(client: &Client) -> u64 {
@@ -257,7 +257,7 @@ pub fn get_block_height_of_last_difficulty_adjustment(client: &Client) -> u64 {
 pub fn get_mempool_transactions_count(client: &Client) -> u64 {
     let client = &client.bitcoind_request_client;
     let mining_info = GetMiningInfoCommand::new().call(client);
-    let mempool_transaction_count = mining_info.pooledtx;
+    let mempool_transaction_count = mining_info.unwrap().pooledtx;
     mempool_transaction_count
 }
 
@@ -268,7 +268,7 @@ pub fn get_estimated_hash_rate_per_second_for_block_since_last_difficulty_change
     let hash_rate = GetNetworkHashPsCommand::new()
         .set_n_blocks(bitcoind_request::command::get_network_hash_ps::BlocksToIncludeArg::BlocksSinceLastDifficultyChange)
         .call(client);
-    hash_rate.0
+    hash_rate.unwrap().0
 }
 
 pub fn get_estimated_hash_rate_per_second_for_last_2016_blocks(client: &Client) -> f64 {
@@ -281,7 +281,7 @@ pub fn get_estimated_hash_rate_per_second_for_last_2016_blocks(client: &Client) 
             ),
         )
         .call(client);
-    hash_rate.0
+    hash_rate.unwrap().0
 }
 pub fn get_estimated_hash_rate_per_second_for_last_epoch(client: &Client) -> f64 {
     let bitcoind_request_client = &client.bitcoind_request_client;
@@ -299,7 +299,7 @@ pub fn get_estimated_hash_rate_per_second_for_last_epoch(client: &Client) -> f64
             ),
         )
         .call(bitcoind_request_client);
-    hash_rate.0
+    hash_rate.unwrap().0
 }
 
 pub fn get_blocks_count_until_retarget(client: &Client) -> f64 {
@@ -473,7 +473,7 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
         let block_stats = GetBlockStatsCommand::new(TargetBlockArgument::Height(height))
             .add_selective_stats(vec![StatsArgumentChoices::Blockhash])
             .call(bitcoind_request_client);
-        let blockhash = match block_stats {
+        let blockhash = match block_stats.unwrap() {
             GetBlockStatsCommandResponse::AllStats(response) => response.blockhash,
             GetBlockStatsCommandResponse::SelectiveStats(response) => response.blockhash.unwrap(),
         };
@@ -481,7 +481,7 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
             .verbosity(GetBlockCommandVerbosity::BlockObjectWithTransactionInformation)
             .call(&bitcoind_request_client);
         let block_transactions_responses: Vec<GetBlockCommandTransactionResponse> =
-            match get_block_response {
+            match get_block_response.unwrap() {
                 GetBlockCommandResponse::Block(block) => block.tx,
                 _ => todo!(),
             };
@@ -560,7 +560,7 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
                                 .verbose(true)
                                 .call(bitcoind_request_client);
 
-                            let vout_address = match transaction {
+                            let vout_address = match transaction.unwrap() {
                                 GetRawTransactionCommandResponse::SerializedHexEncodedData(_s) => {
                                     todo!()
                                 }
