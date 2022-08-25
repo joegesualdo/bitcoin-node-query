@@ -8,7 +8,7 @@ This library provides helpful functions to query common information about the bi
 > Add package to Cargo.toml file
 ```rust
 [dependencies]
-bitcoin-node-query = "0.1.2"
+bitcoin-node-query = "0.1.3"
 ```
 
 ## Usage:
