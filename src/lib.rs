@@ -465,8 +465,6 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
     // Calculate fee while the blocktime is within the 24 hour window.
     while !timestamp_is_from_more_than_24_hours_ago(next_block_timestamp as i64) {
         let height = block_count - traversed_blocks_count;
-        println!("BLOCK HEIGHT:{}", height);
-        println!("BLOCKs traversed:{}", traversed_blocks_count);
         // get vouts of block at height
         let bitcoind_request_client = &client.bitcoind_request_client;
         // Get all transactions
@@ -609,7 +607,7 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
                     transactions_segwit_count_based_on_vins_or_vouts_not_including_coinbase =
                         transactions_segwit_count_based_on_vins_or_vouts_not_including_coinbase + 1;
                 } else {
-                    println!("NOT SEGWIT: {:#?}", transaction.txid);
+                    //println!("NOT SEGWIT: {:#?}", transaction.txid);
                 }
             }
         }
@@ -626,14 +624,6 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
     // segwit_vouts_count as f64 / vouts_count_minus_change_vout as f64
     //
     // % of transactions that are segwit, not including coinase
-    println!(
-        "transactions count (not including coinbase): {}",
-        transactions_count_not_including_coinbase
-    );
-    println!(
-        "transactions count (including coinbase): {}",
-        transactions_count_including_coinbase
-    );
     let percent_of_transactions_with_a_segwit_vout =
         transactions_segwit_count_based_on_vouts_not_including_coinbase as f64
             / transactions_count_not_including_coinbase as f64;
