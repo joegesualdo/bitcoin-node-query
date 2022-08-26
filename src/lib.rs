@@ -555,7 +555,6 @@ pub fn get_percent_of_vouts_used_segwit_over_last_24_hours(
                             vins_count = vins_count + 1;
                             let txid = &v.txid;
                             let vout_index = v.vout;
-                            println!("About to GetRawTransactionCommand: {}", txid.clone());
                             let transaction = GetRawTransactionCommand::new(txid.clone())
                                 .verbose(true)
                                 .call(bitcoind_request_client);
