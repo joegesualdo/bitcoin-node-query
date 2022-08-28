@@ -38,8 +38,8 @@ fn main() {
     let url = env::var("BITCOIND_URL").expect("BITCOIND_URL env variable not set");
     let client = Client::new(&url, &username, &password).expect("failed to create client");
 
-    // let block_height = get_block_height(&client);
-    // println!("BLOCK HEIGHT: {:#?}", block_height);
+    let block_height = get_block_height(&client);
+    println!("BLOCK HEIGHT: {:#?}", block_height);
 
     // let seconds_since_last_block = get_time_since_last_block_in_seconds(&client);
     // println!(
@@ -172,12 +172,12 @@ fn main() {
     //     fees_as_a_percent_of_reward_for_last_24_hours_
     // );
     // // takes a long time
-    // let fees_as_a_percent_of_reward_for_last_2016_blocks =
-    //     get_fees_as_a_percent_of_reward_for_last_2016_blocks(&client);
-    // println!(
-    //     "FEES AS A PERCENT OF REWARD OVER THE LAST 2016 BLOCKS: {}",
-    //     fees_as_a_percent_of_reward_for_last_2016_blocks
-    // );
+    let fees_as_a_percent_of_reward_for_last_2016_blocks =
+        get_fees_as_a_percent_of_reward_for_last_2016_blocks(&client);
+    println!(
+        "FEES AS A PERCENT OF REWARD OVER THE LAST 2016 BLOCKS: {}",
+        fees_as_a_percent_of_reward_for_last_2016_blocks
+    );
 
     // let block_subsidy_of_most_recent_block = get_block_subsidy_of_most_recent_block(&client);
     // println!(
