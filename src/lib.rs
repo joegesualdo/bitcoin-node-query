@@ -135,7 +135,7 @@ pub fn get_average_block_time_for_since_last_difficulty_adjustement(client: &Cli
     average_seconds_per_block
 }
 
-pub fn get_total_money_supply(client: &Client) -> u64 {
+pub fn get_total_money_supply(client: &Client) -> f64 {
     // calls to gettxoutsetinfo are erroring out due to this: https://github.com/apoelstra/rust-jsonrpc/issues/67
     let client = &client.bitcoind_request_client;
     let tx_out_set_info = GetTxOutSetInfoCommand::new().call(client);

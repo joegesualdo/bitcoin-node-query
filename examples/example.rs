@@ -223,4 +223,8 @@ fn main() {
         "percent of segwit spending transactions per day: {:#?}",
         percent_of_segwit_spending_transactions_per_day
     );
+    println!("total money supply: {:#?}", get_total_money_supply(&client));
+    println!("utxo set size: {:#?}", get_utxo_set_size(&client));
+    println!("total money supply: {:#?}", get_total_money_supply(&client));
+    println!("utxo set size: {:#?}", get_utxo_set_size(&client));
 }
